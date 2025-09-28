@@ -88,7 +88,7 @@
 
             <!-- Loading Spinner -->
             <div id="loading" class="text-center my-8">
-                <svg class="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -160,6 +160,7 @@
         const voterNameInput = document.getElementById('voterName');
         const messageArea = document.getElementById('messageArea');
         const loadingDiv = document.getElementById('loading');
+        const loadingText = document.querySelector('#loading p');
         const resultsSection = document.getElementById('results-section');
         const mainContainer = document.getElementById('main-container');
         const configErrorOverlay = document.getElementById('config-error-overlay');
@@ -178,7 +179,7 @@
             };
 
             if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
-                displayMessage("Error: Firebase is not configured.", true, false);
+                displayMessage("Error: Firebase is not configured.", 'error', false);
                 console.error("Please add your Firebase configuration to the firebaseConfig object in index.html");
                 loadingDiv.style.display = 'none';
                 return;
@@ -194,8 +195,21 @@
             const votesCollectionRef = collection(db, `/artifacts/${appId}/public/data/cricket_poll_votes`);
 
             // --- Functions ---
-            function displayMessage(msg, isError = false, autoClear = true) {
-                messageArea.innerHTML = `<span class="px-4 py-2 rounded-md block ${isError ? 'text-red-300 bg-red-900/50' : 'text-green-300 bg-green-900/50'}">${msg}</span>`;
+            function displayMessage(msg, type = 'success', autoClear = true) {
+                let styleClasses = '';
+                switch (type) {
+                    case 'error':
+                        styleClasses = 'text-red-300 bg-red-900/50';
+                        break;
+                    case 'loading':
+                        styleClasses = 'text-yellow-300 bg-yellow-900/50';
+                        break;
+                    case 'success':
+                    default:
+                        styleClasses = 'text-green-300 bg-green-900/50';
+                        break;
+                }
+                messageArea.innerHTML = `<span class="px-4 py-2 rounded-md block ${styleClasses}">${msg}</span>`;
 
                 if (autoClear) {
                     setTimeout(() => {
@@ -207,7 +221,7 @@
             async function handleVote(team) {
                 const name = voterNameInput.value.trim();
                 if (!name) {
-                    displayMessage('Please enter your name before voting.', true);
+                    displayMessage('Please enter your name before voting.', 'error');
                     voterNameInput.focus();
                     return;
                 }
@@ -217,18 +231,28 @@
                 votePakistanBtn.disabled = true;
                 voteIndiaBtn.textContent = '...';
                 votePakistanBtn.textContent = '...';
+                
+                // NEW: Show a submitting message that doesn't auto-clear
+                displayMessage('Submitting your vote to the server...', 'loading', false);
 
                 try {
-                    await addDoc(votesCollectionRef, {
+                    const docRef = await addDoc(votesCollectionRef, {
                         name: name,
                         team: team,
                         votedAt: new Date()
                     });
+                    console.log("Document written with ID: ", docRef.id); // For verification
+                    
                     voterNameInput.value = ''; // Clear input on successful vote
-                    displayMessage(`Thank you for voting for ${team}!`, false);
+                    
+                    // NEW: Show a confirmed success message that auto-clears
+                    displayMessage(`Vote saved successfully!`, 'success', true);
+
                 } catch (error) {
                     console.error("Error adding document: ", error);
-                    displayMessage('Could not save your vote. Please try again.', true);
+                    console.error("Firestore Error Code: ", error.code);
+                    console.error("Firestore Error Message: ", error.message);
+                    displayMessage('Could not save your vote. Check console for details (F12).', 'error', false);
                 } finally {
                     // Re-enable buttons
                     voteIndiaBtn.disabled = false;
@@ -243,7 +267,7 @@
             votePakistanBtn.addEventListener('click', () => handleVote('Pakistan'));
             voterNameInput.addEventListener('keyup', (event) => {
                 if (event.key === 'Enter') {
-                    displayMessage('Please click one of the vote buttons.', true);
+                    displayMessage('Please click one of the vote buttons.', 'error');
                 }
             });
 
@@ -271,7 +295,7 @@
 
                 }, (error) => {
                     console.error("Error listening to votes collection:", error);
-                    displayMessage("Error fetching live results.", true, false);
+                    displayMessage("Error fetching live results.", 'error', false);
                     loadingDiv.style.display = 'none';
                 });
             }
@@ -312,18 +336,19 @@
 
             async function authenticateAndListen() {
                 try {
+                    loadingText.textContent = "Authenticating...";
                     await signInAnonymously(auth);
                     console.log("Authenticated user:", auth.currentUser?.uid);
+                    
+                    loadingText.textContent = "Connecting to live poll...";
                     listenForVotes();
                 } catch(e) {
                     console.error("Authentication failed:", e);
-                    // Check for the specific error and provide a helpful message
                     if (e.code === 'auth/configuration-not-found') {
-                        // Hide the main app and show the configuration error overlay
                         mainContainer.style.display = 'none';
                         configErrorOverlay.style.display = 'flex';
                     } else {
-                         displayMessage("Could not connect to the poll service.", true, false);
+                         displayMessage("Could not connect to the poll service.", 'error', false);
                     }
                     loadingDiv.style.display = 'none';
                 }
