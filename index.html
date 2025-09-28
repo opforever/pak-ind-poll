@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>India vs. Pakistan: Cricket Poll</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Simple transition for progress bar and button feedback */
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .btn-vote {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-vote:active {
+            transform: scale(0.95);
+        }
+        /* Custom scrollbar for voter lists */
+        .voter-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .voter-list::-webkit-scrollbar-track {
+            background: #2d3748; /* gray-800 */
+        }
+        .voter-list::-webkit-scrollbar-thumb {
+            background: #4a5568; /* gray-600 */
+            border-radius: 4px;
+        }
+        .voter-list::-webkit-scrollbar-thumb:hover {
+            background: #718096; /* gray-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white antialiased">
+
+    <!-- Blurred Background and Overlay -->
+    <!-- This div uses your uploaded image. Just place 'image_83b112.jpg' in the same folder as this html file. -->
+    <div class="fixed inset-0 z-[-2] bg-cover bg-center" style="background-image: url('image_83b112.jpg');"></div>
+    <div class="fixed inset-0 z-[-1] bg-black/70 backdrop-blur-sm"></div>
+    
+    <!-- Configuration Error Overlay -->
+    <div id="config-error-overlay" class="hidden fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-red-900/50 border border-red-500 rounded-lg p-8 text-center">
+            <h2 class="text-3xl font-extrabold text-red-300 mb-4">Action Required: Enable Anonymous Sign-In</h2>
+            <p class="text-lg text-red-200 mb-6">
+                This app cannot connect because the 'Anonymous' sign-in provider is not enabled in your Firebase project.
+            </p>
+            <div class="text-left text-lg text-gray-200 bg-gray-800 p-6 rounded-lg">
+                <h3 class="font-bold mb-3">Please follow these steps:</h3>
+                <ol class="list-decimal list-inside space-y-2">
+                    <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-400 underline hover:text-blue-300">Firebase Console</a>.</li>
+                    <li>Navigate to <strong>Build > Authentication</strong>.</li>
+                    <li>Select the <strong>Sign-in method</strong> tab.</li>
+                    <li>Find <strong>Anonymous</strong> in the provider list and click the pencil icon to edit.</li>
+                    <li>Enable the toggle switch and click <strong>Save</strong>.</li>
+                </ol>
+            </div>
+            <p class="mt-6 text-red-300">After enabling, please refresh this page.</p>
+        </div>
+    </div>
+
+
+    <!-- Main container with optimized padding for mobile -->
+    <div id="main-container" class="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8 pt-12 sm:pt-20 md:pt-24 relative">
+        
+        <main class="bg-gray-800/80 backdrop-blur-md p-6 md:p-8 rounded-lg shadow-xl border border-gray-700">
+            <!-- Poll Title -->
+            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">THE ULTIMATE RIVALRY</h1>
+            <p class="text-center text-lg text-gray-300 mb-8">Who will win today's match?</p>
+
+            <!-- Name Input & Voting Section -->
+            <!-- This section stacks vertically on mobile (flex-col) and becomes a row on larger screens (sm:flex-row) -->
+            <div id="vote-section" class="mb-8">
+                <div class="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                    <input type="text" id="voterName" placeholder="Enter your name to vote" class="w-full sm:w-1/2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 text-lg rounded-md px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    <div class="flex gap-4 w-full sm:w-auto">
+                        <button id="voteIndia" class="btn-vote w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md shadow-lg flex-1">Vote India</button>
+                        <button id="votePakistan" class="btn-vote w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md shadow-lg flex-1">Vote Pakistan</button>
+                    </div>
+                </div>
+                <div id="messageArea" class="text-center mt-4 min-h-[1.25rem]"></div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loading" class="text-center my-8">
+                <svg class="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-2 text-gray-400">Connecting to live poll...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" class="hidden">
+                <!-- Poll Bars -->
+                <div class="space-y-4 mb-8">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-lg font-semibold">India</span>
+                            <span id="indiaVotes" class="font-bold text-blue-300">0 votes</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-6">
+                            <div id="indiaBar" class="progress-bar bg-blue-600 h-6 rounded-full text-right pr-2 text-sm font-medium" style="width: 0%">
+                                <span id="indiaPercent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-lg font-semibold">Pakistan</span>
+                            <span id="pakistanVotes" class="font-bold text-green-300">0 votes</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-6">
+                            <div id="pakistanBar" class="progress-bar bg-green-600 h-6 rounded-full text-right pr-2 text-sm font-medium" style="width: 0%">
+                                <span id="pakistanPercent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="border-gray-600 mb-8">
+
+                <!-- Voter Lists -->
+                <!-- This grid is a single column on mobile (grid-cols-1) and two columns on larger screens (md:grid-cols-2) -->
+                <h2 class="text-2xl font-bold text-center mb-6">Who Voted for Whom?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- India Voters -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg border border-blue-500/30">
+                        <h3 class="text-xl font-semibold mb-3 text-blue-300 text-center">Voted for India</h3>
+                        <ul id="indiaVoters" class="voter-list h-48 overflow-y-auto space-y-2 text-center text-gray-200">
+                           <!-- Names will be populated here -->
+                        </ul>
+                    </div>
+                    <!-- Pakistan Voters -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg border border-green-500/30">
+                        <h3 class="text-xl font-semibold mb-3 text-green-300 text-center">Voted for Pakistan</h3>
+                        <ul id="pakistanVoters" class="voter-list h-48 overflow-y-auto space-y-2 text-center text-gray-200">
+                            <!-- Names will be populated here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DOM Elements ---
+        const voteIndiaBtn = document.getElementById('voteIndia');
+        const votePakistanBtn = document.getElementById('votePakistan');
+        const voterNameInput = document.getElementById('voterName');
+        const messageArea = document.getElementById('messageArea');
+        const loadingDiv = document.getElementById('loading');
+        const resultsSection = document.getElementById('results-section');
+        const mainContainer = document.getElementById('main-container');
+        const configErrorOverlay = document.getElementById('config-error-overlay');
+
+        // --- App Initialization Logic ---
+        function startApp() {
+            // --- Firebase Setup ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyC0-XOiYqgr4GFZ6p3vqPRS2Ug9QddcUeA",
+                authDomain: "compass-6635d.firebaseapp.com",
+                projectId: "compass-6635d",
+                storageBucket: "compass-6635d.appspot.com",
+                messagingSenderId: "268343265213",
+                appId: "1:268343265213:web:6c69152f70a018327e34d4",
+                measurementId: "G-TDP7HWBELS"
+            };
+
+            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+                displayMessage("Error: Firebase is not configured.", true, false);
+                console.error("Please add your Firebase configuration to the firebaseConfig object in index.html");
+                loadingDiv.style.display = 'none';
+                return;
+            }
+            
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            const appId = firebaseConfig.projectId; // Use your project ID for the database path
+            setLogLevel('debug');
+
+            // --- Public Collection for Poll Data ---
+            const votesCollectionRef = collection(db, `/artifacts/${appId}/public/data/cricket_poll_votes`);
+
+            // --- Functions ---
+            function displayMessage(msg, isError = false, autoClear = true) {
+                messageArea.innerHTML = `<span class="px-4 py-2 rounded-md block ${isError ? 'text-red-300 bg-red-900/50' : 'text-green-300 bg-green-900/50'}">${msg}</span>`;
+
+                if (autoClear) {
+                    setTimeout(() => {
+                        messageArea.innerHTML = '';
+                    }, 5000);
+                }
+            }
+
+            async function handleVote(team) {
+                const name = voterNameInput.value.trim();
+                if (!name) {
+                    displayMessage('Please enter your name before voting.', true);
+                    voterNameInput.focus();
+                    return;
+                }
+                
+                // Disable buttons to prevent double voting
+                voteIndiaBtn.disabled = true;
+                votePakistanBtn.disabled = true;
+                voteIndiaBtn.textContent = '...';
+                votePakistanBtn.textContent = '...';
+
+                try {
+                    await addDoc(votesCollectionRef, {
+                        name: name,
+                        team: team,
+                        votedAt: new Date()
+                    });
+                    voterNameInput.value = ''; // Clear input on successful vote
+                    displayMessage(`Thank you for voting for ${team}!`, false);
+                } catch (error) {
+                    console.error("Error adding document: ", error);
+                    displayMessage('Could not save your vote. Please try again.', true);
+                } finally {
+                    // Re-enable buttons
+                    voteIndiaBtn.disabled = false;
+                    votePakistanBtn.disabled = false;
+                    voteIndiaBtn.textContent = 'Vote India';
+                    votePakistanBtn.textContent = 'Vote Pakistan';
+                }
+            }
+            
+            // --- Event Listeners ---
+            voteIndiaBtn.addEventListener('click', () => handleVote('India'));
+            votePakistanBtn.addEventListener('click', () => handleVote('Pakistan'));
+            voterNameInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    displayMessage('Please click one of the vote buttons.', true);
+                }
+            });
+
+            function listenForVotes() {
+                const q = query(votesCollectionRef);
+
+                onSnapshot(q, (snapshot) => {
+                    let indiaVotesCount = 0;
+                    let pakistanVotesCount = 0;
+                    const indiaVoters = [];
+                    const pakistanVoters = [];
+
+                    snapshot.docs.forEach(doc => {
+                        const vote = doc.data();
+                        if (vote.team === 'India') {
+                            indiaVotesCount++;
+                            indiaVoters.push(vote.name);
+                        } else if (vote.team === 'Pakistan') {
+                            pakistanVotesCount++;
+                            pakistanVoters.push(vote.name);
+                        }
+                    });
+                    
+                    updateUI(indiaVotesCount, pakistanVotesCount, indiaVoters, pakistanVoters);
+
+                }, (error) => {
+                    console.error("Error listening to votes collection:", error);
+                    displayMessage("Error fetching live results.", true, false);
+                    loadingDiv.style.display = 'none';
+                });
+            }
+            
+            function updateUI(indiaVotes, pakistanVotes, indiaVotersList, pakistanVotersList) {
+                loadingDiv.style.display = 'none';
+                resultsSection.style.display = 'block';
+
+                const totalVotes = indiaVotes + pakistanVotes;
+
+                const indiaPercent = totalVotes === 0 ? 0 : Math.round((indiaVotes / totalVotes) * 100);
+                const pakistanPercent = totalVotes === 0 ? 0 : 100 - indiaPercent; // To avoid rounding errors
+
+                document.getElementById('indiaVotes').textContent = `${indiaVotes} vote${indiaVotes !== 1 ? 's' : ''}`;
+                document.getElementById('pakistanVotes').textContent = `${pakistanVotes} vote${pakistanVotes !== 1 ? 's' : ''}`;
+                document.getElementById('indiaPercent').textContent = `${indiaPercent}%`;
+                document.getElementById('pakistanPercent').textContent = `${pakistanPercent}%`;
+                document.getElementById('indiaBar').style.width = `${indiaPercent}%`;
+                document.getElementById('pakistanBar').style.width = `${pakistanPercent}%`;
+
+                const indiaVotersUl = document.getElementById('indiaVoters');
+                const pakistanVotersUl = document.getElementById('pakistanVoters');
+
+                indiaVotersUl.innerHTML = indiaVotersList.length > 0 ? 
+                    indiaVotersList.map(name => `<li class="truncate">${escapeHTML(name)}</li>`).join('') : 
+                    '<li class="text-gray-500">No votes yet</li>';
+
+                pakistanVotersUl.innerHTML = pakistanVotersList.length > 0 ? 
+                    pakistanVotersList.map(name => `<li class="truncate">${escapeHTML(name)}</li>`).join('') : 
+                    '<li class="text-gray-500">No votes yet</li>';
+            }
+
+            function escapeHTML(str) {
+                const div = document.createElement('div');
+                div.appendChild(document.createTextNode(str));
+                return div.innerHTML;
+            }
+
+            async function authenticateAndListen() {
+                try {
+                    await signInAnonymously(auth);
+                    console.log("Authenticated user:", auth.currentUser?.uid);
+                    listenForVotes();
+                } catch(e) {
+                    console.error("Authentication failed:", e);
+                    // Check for the specific error and provide a helpful message
+                    if (e.code === 'auth/configuration-not-found') {
+                        // Hide the main app and show the configuration error overlay
+                        mainContainer.style.display = 'none';
+                        configErrorOverlay.style.display = 'flex';
+                    } else {
+                         displayMessage("Could not connect to the poll service.", true, false);
+                    }
+                    loadingDiv.style.display = 'none';
+                }
+            }
+
+            authenticateAndListen();
+        }
+
+        // --- Start the application ---
+        startApp();
+
+    </script>
+</body>
+</html>
+
